@@ -1,4 +1,5 @@
 # Utility functions for SIPBacktester
+library(foreign)
 
 loadfile<-function(fn,folder,prnt=T,flds=NULL){
     # loads the fields (all fields if flds==NULL) from dbf fn in folder
@@ -76,5 +77,51 @@ port_wts_cap<-function(stock.df,maxwt=1){
     return(out)
 }
 
-x<-passing.lst[[1]]
-y<-port_wts_eq(x)
+convert_price_files_to_rdata<-function(strDate){ #convert a single pair of price and date files to rdata
+    library(reshape)
+    sipfolder<-dbflocations(strDate)
+    si_psdc <- loadfile("si_psdc.dbf", sipfolder$dbfs,F)
+    si_psdd <- loadfile("si_psdd.dbf", sipfolder$dbfs,F)
+    #var<-paste("pr_",strDate,sep="")
+    #assign(var,merge(si_psdc,si_psdd,by="COMPANY_ID"))
+    price_data<-merge(si_psdc,si_psdd,by="COMPANY_ID")
+    price_vars<-sprintf("PRICE_M%03d",seq(1:120))
+    price_data <- tonumeric(price_data,price_vars)
+    outfile<-paste(mainfolder,"/rdata/sip_prices_",strDate,".rdata",sep="")
+    save(price_data,file=outfile)
+}
+
+convert_all_price_files_to_r<-function(){  #convert all files
+    lapply(sipbInstallDates,convert_price_files_to_rdata)
+}
+
+convert_1install_dbf_to_rdata<-function(strDate){
+    sipfolder<-dbflocations(strDate)
+    si_ci <- loadfile("si_ci.dbf", sipfolder$static,F)
+    si_mlt <- cleanfile(loadfile("si_mlt.dbf", sipfolder$dbfs,F))
+    si_isq <- cleanfile(loadfile("si_isq.dbf", sipfolder$static,F))
+    si_gr <- cleanfile(loadfile("si_gr.dbf", sipfolder$dbfs,F))
+    si_perc <- cleanfile(loadfile("si_perc.dbf", sipfolder$dbfs,F))
+    si_rat <- cleanfile(loadfile("si_rat.dbf", sipfolder$dbfs,F))
+    si_psd <- cleanfile(loadfile("si_psd.dbf", sipfolder$dbfs,F))
+    save(si_ci,file=paste(mainfolder,"/rdata/si_ci_",strDate,".rdata",sep=""))
+    save(si_mlt,file=paste(mainfolder,"/rdata/si_mlt_",strDate,".rdata",sep=""))
+    save(si_isq,file=paste(mainfolder,"/rdata/si_isq_",strDate,".rdata",sep=""))
+    save(si_gr,file=paste(mainfolder,"/rdata/si_gr_",strDate,".rdata",sep=""))
+    save(si_perc,file=paste(mainfolder,"/rdata/si_perc_",strDate,".rdata",sep=""))
+    save(si_rat,file=paste(mainfolder,"/rdata/si_rat_",strDate,".rdata",sep=""))
+    save(si_psd,file=paste(mainfolder,"/rdata/si_psd_",strDate,".rdata",sep=""))
+}
+
+
+cleanfile<-function(df){
+    XNullCol<-match("X_NullFlags",colnames(df))
+    if (! is.na(XNullCol)){
+        df<-df[,1:(XNullCol-1)]
+    }
+    for (i in 2:ncol(df)){
+        df[,i]<-as.numeric(df[,i])
+    }
+    return(df)
+}
+temp<-cleanfile(si_mlt)
